@@ -1,0 +1,90 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "PDAL Python",
+  "projectDescription": "Python bindings for PDAL to process point cloud data with NumPy arrays",
+  "theme": "palm",
+  "primaryColor": "#2D7A3E",
+  "lightColor": "#4A9D5F",
+  "darkColor": "#1A5128",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/pipeline",
+              "concepts/stages",
+              "concepts/arrays"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/basic-usage",
+              "guides/programmatic-pipelines",
+              "guides/numpy-integration",
+              "guides/digital-terrain-models"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/streaming",
+              "advanced/mesh-data",
+              "advanced/integrations"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/pipeline",
+              "api/stage",
+              "api/reader",
+              "api/filter",
+              "api/writer"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/dimensions",
+              "api/info"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Pipeline construction with JSON or Python API",
+    "NumPy array integration for point cloud data",
+    "Streaming execution for large datasets",
+    "Support for mesh data with meshio integration",
+    "Pandas and GeoPandas integration",
+    "Reader/Filter/Writer stage system"
+  ],
+  "publicApiSurface": [
+    "Pipeline",
+    "Reader",
+    "Filter",
+    "Writer",
+    "Stage",
+    "dimensions",
+    "info"
+  ]
+}
