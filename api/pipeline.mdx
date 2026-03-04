@@ -121,10 +121,15 @@ Numpy arrays containing mesh data (triangles) from stages like `filters.delaunay
 ### metadata
 
 ```python
-metadata: str
+metadata: dict
 ```
 
-JSON string containing metadata from the pipeline execution.
+Dictionary containing metadata from the pipeline execution. This is automatically parsed from JSON.
+
+```python
+pipeline.execute()
+print(pipeline.metadata)  # Access metadata as dict
+```
 
 ### log
 
@@ -133,6 +138,41 @@ log: str
 ```
 
 Log output from the pipeline execution.
+
+### schema
+
+```python
+schema: dict
+```
+
+Dictionary containing the schema information (dimensions and their types) for the point cloud data.
+
+```python
+pipeline.execute()
+print(pipeline.schema)
+```
+
+### pipeline
+
+```python
+pipeline: str
+```
+
+JSON string representation of the pipeline configuration. This is the internal representation used by PDAL.
+
+### quickinfo
+
+```python
+quickinfo: dict
+```
+
+Dictionary containing quick preview information about the data source without fully reading it. Useful for inspecting file headers and metadata.
+
+```python
+pipeline = pdal.Reader.las("input.las").pipeline()
+info = pipeline.quickinfo
+print(info)
+```
 
 ### srswkt2
 
@@ -147,10 +187,14 @@ Spatial reference system in WKT2 format.
 ### execute
 
 ```python
-execute() -> int
+execute(allowed_dims: list = []) -> int
 ```
 
 Executes the pipeline in standard (non-streaming) mode.
+
+<ParamField path="allowed_dims" type="list" default="[]">
+  Optional list of dimension names to include in the output arrays. If empty, all dimensions are included.
+</ParamField>
 
 <ResponseField name="return" type="int">
   Total number of points processed.
@@ -160,18 +204,25 @@ Executes the pipeline in standard (non-streaming) mode.
 pipeline = pdal.Reader.las("input.las") | pdal.Filter.sort(dimension="X")
 count = pipeline.execute()
 print(f"Processed {count} points")
+
+# Only load specific dimensions
+count = pipeline.execute(allowed_dims=['X', 'Y', 'Z', 'Intensity'])
 ```
 
 ### execute_streaming
 
 ```python
-execute_streaming(chunk_size: int) -> int
+execute_streaming(chunk_size: int = 10000, allowed_dims: list = []) -> int
 ```
 
 Executes a streamable pipeline in streaming mode without allocating arrays in memory. Useful when the pipeline has Writer stages and you don't need to access point data.
 
-<ParamField path="chunk_size" type="int">
+<ParamField path="chunk_size" type="int" default="10000">
   Number of points to process per chunk.
+</ParamField>
+
+<ParamField path="allowed_dims" type="list" default="[]">
+  Optional list of dimension names to include. If empty, all dimensions are included.
 </ParamField>
 
 <ResponseField name="return" type="int">
@@ -186,7 +237,7 @@ count = pipeline.execute_streaming(chunk_size=10000)
 ### iterator
 
 ```python
-iterator(chunk_size: int = 10000, prefetch: int = 0) -> Iterator[np.ndarray]
+iterator(chunk_size: int = 10000, prefetch: int = 0, allowed_dims: list = []) -> Iterator[np.ndarray]
 ```
 
 Returns an iterator that yields Numpy arrays of up to `chunk_size` points at a time. Only works with streamable pipelines.
@@ -199,6 +250,10 @@ Returns an iterator that yields Numpy arrays of up to `chunk_size` points at a t
   Number of arrays to prefetch and buffer in parallel.
 </ParamField>
 
+<ParamField path="allowed_dims" type="list" default="[]">
+  Optional list of dimension names to include in yielded arrays. If empty, all dimensions are included.
+</ParamField>
+
 <ResponseField name="return" type="Iterator[np.ndarray]">
   Iterator yielding Numpy structured arrays.
 </ResponseField>
@@ -208,6 +263,10 @@ pipeline = pdal.Reader.las("input.las") | pdal.Filter.range(limits="Intensity[10
 for chunk in pipeline.iterator(chunk_size=5000):
     print(f"Processing {len(chunk)} points")
     # Process chunk...
+
+# Only iterate over specific dimensions
+for chunk in pipeline.iterator(chunk_size=5000, allowed_dims=['X', 'Y', 'Z']):
+    print(f"Processing {len(chunk)} points with X, Y, Z only")
 ```
 
 ### toJSON
