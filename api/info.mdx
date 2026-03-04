@@ -1,0 +1,82 @@
+---
+title: "info"
+description: "Get PDAL version and configuration information"
+---
+
+## Overview
+
+`pdal.info` provides metadata about the PDAL library installation, including version information, debug details, and plugin paths. This is useful for debugging, logging, and ensuring compatibility.
+
+## Usage
+
+```python
+import pdal
+
+# Access PDAL information
+info = pdal.info
+
+# Check PDAL version
+print(info.version)  # e.g., "2.6.0"
+print(info.major)    # e.g., 2
+print(info.minor)    # e.g., 6
+print(info.patch)    # e.g., 0
+
+# Get debug and build information
+print(info.debug)    # Debug information string
+print(info.sha1)     # Git commit SHA
+print(info.plugin)   # Plugin installation path
+```
+
+## Available attributes
+
+The `info` object is a `SimpleNamespace` with the following attributes:
+
+- **version** - Full version string (e.g., "2.6.0")
+- **major** - Major version number
+- **minor** - Minor version number
+- **patch** - Patch version number
+- **debug** - Debug information about the build
+- **sha1** - Git commit hash of the PDAL build
+- **plugin** - Plugin installation path
+
+## Implementation
+
+From `__init__.py`:
+
+```python
+info = libpdalpython.getInfo()
+```
+
+The C++ implementation in `libpdalpython.cpp` creates a `SimpleNamespace` object:
+
+```cpp
+py::object getInfo() {
+    return py::module_::import("types").attr("SimpleNamespace")(
+            "version"_a = pdal::Config::versionString(),
+            "major"_a = pdal::Config::versionMajor(),
+            "minor"_a = pdal::Config::versionMinor(),
+            "patch"_a = pdal::Config::versionPatch(),
+            "debug"_a = pdal::Config::debugInformation(),
+            "sha1"_a = pdal::Config::sha1(),
+            "plugin"_a = pdal::Config::pluginInstallPath()
+    );
+};
+```
+
+## Example from CLI
+
+The `pdal` command-line interface uses this information to display version details:
+
+```python
+from pdal import info
+
+pdal_version = info.version
+plugin = info.plugin
+debug = info.debug
+
+print(f'PDAL version {pdal_version}')
+print(f'Plugin path: {plugin}')
+print(debug)
+```
+
+See `src/pdal/__main__.py:print_version` for the complete implementation.

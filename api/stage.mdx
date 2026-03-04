@@ -1,0 +1,188 @@
+---
+title: Stage
+description: Base class for all PDAL pipeline stages
+---
+
+The `Stage` class is the base class for all PDAL stages (readers, filters, and writers). It represents a single operation in a PDAL pipeline.
+
+## Constructor
+
+```python
+Stage(**options: Any)
+```
+
+<ParamField path="options" type="Any">
+  Keyword arguments representing PDAL stage options. The specific options available depend on the stage type.
+</ParamField>
+
+<Note>
+  You typically don't instantiate `Stage` directly. Instead, use the `Reader`, `Filter`, or `Writer` subclasses.
+</Note>
+
+## Properties
+
+### type
+
+```python
+@property
+type -> str
+```
+
+The PDAL stage type identifier (e.g., `"readers.las"`, `"filters.sort"`, `"writers.las"`).
+
+```python
+stage = pdal.Reader.las("input.las")
+print(stage.type)  # "readers.las"
+```
+
+### streamable
+
+```python
+@property
+streamable -> bool
+```
+
+Returns `True` if the stage supports streaming execution, `False` otherwise.
+
+```python
+stage = pdal.Filter.sort(dimension="X")
+if stage.streamable:
+    print("Stage supports streaming")
+```
+
+### tag
+
+```python
+@property
+tag -> Optional[str]
+```
+
+The tag identifier for this stage, used to reference it as an input to other stages. Returns `None` if no tag is set.
+
+```python
+reader = pdal.Reader.las("input.las", tag="my_reader")
+print(reader.tag)  # "my_reader"
+```
+
+### inputs
+
+```python
+@property
+inputs -> List[Union[Stage, str]]
+```
+
+List of input stages or stage tags that feed into this stage. Returns an empty list if no inputs are specified.
+
+```python
+merge = pdal.Filter.merge(inputs=[stage1, stage2])
+print(merge.inputs)  # [stage1, stage2]
+```
+
+### options
+
+```python
+@property
+options -> Dict[str, Any]
+```
+
+Dictionary of all options configured for this stage.
+
+```python
+filter = pdal.Filter.range(limits="Classification[2:2]")
+print(filter.options)  # {"type": "filters.range", "limits": "Classification[2:2]"}
+```
+
+## Methods
+
+### pipeline
+
+```python
+pipeline(*arrays: np.ndarray, loglevel: int = logging.ERROR) -> Pipeline
+```
+
+Creates a Pipeline containing this stage with optional input arrays.
+
+<ParamField path="arrays" type="np.ndarray">
+  Variable number of Numpy structured arrays to use as input data.
+</ParamField>
+
+<ParamField path="loglevel" type="int" default="logging.ERROR">
+  Logging level for the pipeline.
+</ParamField>
+
+<ResponseField name="return" type="Pipeline">
+  A new Pipeline object containing this stage.
+</ResponseField>
+
+```python
+import numpy as np
+import pdal
+
+# Create array with point data
+array = np.array([(0, 0, 0), (1, 1, 1)], dtype=[('X', float), ('Y', float), ('Z', float)])
+
+# Create pipeline from stage with input array
+filter_stage = pdal.Filter.sort(dimension="X")
+pipeline = filter_stage.pipeline(array)
+```
+
+### __or__
+
+```python
+__or__(other: Union[Stage, Pipeline]) -> Pipeline
+```
+
+Pipe operator (`|`) for composing stages and pipelines together.
+
+<ParamField path="other" type="Union[Stage, Pipeline]">
+  Another Stage or Pipeline to append.
+</ParamField>
+
+<ResponseField name="return" type="Pipeline">
+  A new Pipeline containing both stages/pipelines.
+</ResponseField>
+
+```python
+# Pipe stages together
+pipeline = pdal.Reader.las("input.las") | pdal.Filter.sort(dimension="X") | pdal.Writer.las("output.las")
+
+# Pipe a stage to a pipeline
+base_pipeline = pdal.Reader.las("input.las") | pdal.Filter.range(limits="Intensity[100:200]")
+full_pipeline = base_pipeline | pdal.Writer.las("output.las")
+```
+
+## Usage
+
+### Basic stage creation
+
+```python
+import pdal
+
+# Create stages with options
+reader = pdal.Reader.las(filename="input.las")
+filter = pdal.Filter.sort(dimension="X", order="ASC")
+writer = pdal.Writer.las(filename="output.las", compression="lazperf")
+```
+
+### Using tags for complex pipelines
+
+```python
+# Tag stages to reference them later
+reader1 = pdal.Reader.las("file1.las", tag="input1")
+reader2 = pdal.Reader.las("file2.las", tag="input2")
+
+# Merge using tags
+merge = pdal.Filter.merge(inputs=["input1", "input2"])
+
+pipeline = pdal.Pipeline([reader1, reader2, merge])
+```
+
+### Checking stage capabilities
+
+```python
+stage = pdal.Filter.range(limits="Z[0:100]")
+
+print(f"Type: {stage.type}")
+print(f"Streamable: {stage.streamable}")
+print(f"Options: {stage.options}")
+```

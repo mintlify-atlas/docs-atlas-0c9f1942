@@ -1,0 +1,157 @@
+---
+title: Installation
+description: Install PDAL Python and its dependencies to start processing point cloud data
+---
+
+# Installation
+
+PDAL Python provides Python bindings for the PDAL library. You'll need both the PDAL base library and the Python package installed to get started.
+
+## Prerequisites
+
+Before installing PDAL Python, ensure you have:
+
+- **PDAL base library 2.7 or higher**: The core PDAL library must be installed on your system
+- **Python 3.9 or higher**: PDAL Python supports Python 3.9, 3.10, 3.11, and 3.12
+- **NumPy 1.22 or higher**: Required for array operations
+
+<Note>
+The PDAL Python bindings require the PDAL base library to be installed separately. Source code and installation instructions for PDAL can be found at [pdal.io](https://pdal.io) and [GitHub](https://github.com/PDAL/PDAL).
+</Note>
+
+## Install from PyPI
+
+The simplest way to install PDAL Python is using pip:
+
+<Steps>
+  <Step title="Install PDAL Python">
+    Run the following command to install PDAL Python and its dependencies:
+    
+    ```bash
+    pip install PDAL
+    ```
+    
+    This will automatically install NumPy if it's not already present.
+  </Step>
+  
+  <Step title="Verify installation">
+    Verify that PDAL Python is installed correctly:
+    
+    ```python
+    import pdal
+    print(pdal.__version__)
+    print(pdal.info)
+    ```
+    
+    This should display the version number and PDAL configuration information.
+  </Step>
+</Steps>
+
+## Developer installation
+
+If you're developing PDAL Python or need a custom build, you can install from source with full control over the build configuration.
+
+<Steps>
+  <Step title="Install build dependencies">
+    Install the required build tools:
+    
+    ```bash
+    pip install pybind11[global]
+    pip install numpy
+    pip install scikit-build-core
+    ```
+  </Step>
+  
+  <Step title="Clone the repository">
+    Clone the PDAL Python repository:
+    
+    ```bash
+    git clone https://github.com/PDAL/python
+    cd python
+    ```
+  </Step>
+  
+  <Step title="Build and install">
+    Install in editable mode with custom build settings using scikit-build-core:
+    
+    ```bash
+    python -m pip install \
+        -Cbuild-dir=build \
+        -e \
+        . \
+        --config-settings=cmake.build-type="Debug" \
+        -vv \
+        --no-deps \
+        --no-build-isolation
+    ```
+    
+    This command:
+    - Sets the build directory to `build`
+    - Installs in editable mode (`-e`)
+    - Configures a Debug build (change to "Release" for production)
+    - Enables verbose output (`-vv`)
+    - Skips dependency resolution and build isolation for development
+  </Step>
+</Steps>
+
+<Info>
+Developers can control many build settings including debug builds and library installation paths using [scikit-build-core](https://scikit-build-core.readthedocs.io) configuration settings.
+</Info>
+
+## Optional dependencies
+
+PDAL Python integrates with additional libraries for extended functionality:
+
+### Mesh support
+
+For mesh creation and export capabilities:
+
+```bash
+pip install meshio
+```
+
+This enables the `Pipeline.get_meshio()` method for working with triangulated meshes.
+
+### DataFrame support
+
+For pandas and GeoPandas integration:
+
+```bash
+pip install pandas
+pip install geopandas
+```
+
+This enables `Pipeline.get_dataframe()` and `Pipeline.get_geodataframe()` methods.
+
+## Platform-specific notes
+
+### Installing PDAL base library
+
+The installation method for the PDAL base library varies by platform:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install libpdal-dev pdal
+```
+
+**macOS (Homebrew):**
+```bash
+brew install pdal
+```
+
+**Windows:**
+
+Use the OSGeo4W installer or Conda:
+```bash
+conda install -c conda-forge pdal python-pdal
+```
+
+**From source:**
+
+See the [PDAL documentation](https://pdal.io/en/stable/download.html) for detailed build instructions.
+
+## Next steps
+
+<Card title="Quick start" icon="rocket" href="/quickstart">
+  Create your first PDAL pipeline and start processing point cloud data
+</Card>

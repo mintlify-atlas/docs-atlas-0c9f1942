@@ -1,0 +1,117 @@
+---
+title: Third-party integrations
+description: Work with Pandas DataFrames, GeoPandas, and TileDB
+---
+
+PDAL Python provides integration with popular data science and geospatial libraries, allowing you to seamlessly convert point cloud data to and from different formats.
+
+## Pandas DataFrame integration
+
+Convert PDAL arrays to Pandas DataFrames using the `get_dataframe()` method.
+
+```python
+import pdal
+
+pipeline = pdal.Reader("input.las").pipeline()
+pipeline.execute()
+
+# Get the first array as a DataFrame
+df = pipeline.get_dataframe(0)
+print(df.head())
+print(df.columns)
+```
+
+<Warning>
+Pandas must be installed to use this feature. Install with `pip install pandas`.
+</Warning>
+
+The resulting DataFrame contains all point dimensions as columns (X, Y, Z, Intensity, Classification, etc.), making it easy to perform data analysis and filtering operations.
+
+## GeoPandas integration
+
+Convert PDAL arrays to GeoPandas GeoDataFrames using the `get_geodataframe()` method. This creates a spatially-aware DataFrame with a geometry column.
+
+```python
+import pdal
+
+pipeline = pdal.Reader("input.las").pipeline()
+pipeline.execute()
+
+# Get the first array as a GeoDataFrame with 2D points
+gdf = pipeline.get_geodataframe(0)
+print(gdf.head())
+
+# Or with 3D points (XYZ)
+gdf_3d = pipeline.get_geodataframe(0, xyz=True)
+
+# Specify a coordinate reference system
+gdf_with_crs = pipeline.get_geodataframe(0, crs="EPSG:4326")
+```
+
+<Warning>
+GeoPandas must be installed to use this feature. Install with `pip install geopandas`.
+</Warning>
+
+### Parameters
+
+- **idx**: Index of the array to convert
+- **xyz** (default=False): If True, creates 3D point geometries including Z coordinate. If False, creates 2D point geometries
+- **crs** (default=None): Coordinate reference system to assign to the GeoDataFrame
+
+## TileDB writer integration
+
+PDAL Python supports writing point cloud data to TileDB arrays through the [TileDB-PDAL integration](https://docs.tiledb.com/geospatial/pdal). TileDB provides efficient storage and retrieval of large-scale point cloud data.
+
+```python
+import pdal
+import tiledb
+
+data = "https://github.com/PDAL/PDAL/blob/master/test/data/las/1.2-with-color.las?raw=true"
+
+pipeline = pdal.Reader.las(filename=data).pipeline()
+print(pipeline.execute())  # 1065 points
+
+# Get the data from the first array
+arr = pipeline.arrays[0]
+
+# Filter out entries that have intensity < 50
+intensity = arr[arr["Intensity"] > 30]
+print(len(intensity))  # 704 points
+
+# Now use pdal to clamp points that have intensity 100 <= v < 300
+pipeline = pdal.Filter.expression(expression="Intensity >= 100 && Intensity < 300").pipeline(intensity)
+print(pipeline.execute())  # 387 points
+clamped = pipeline.arrays[0]
+
+# Write our intensity data to a LAS file and a TileDB array. For TileDB it is
+# recommended to use Hilbert ordering by default with geospatial point cloud data,
+# which requires specifying a domain extent. This can be determined automatically
+# from a stats filter that computes statistics about each dimension (min, max, etc.).
+pipeline = pdal.Writer.las(
+    filename="clamped.las",
+    offset_x="auto",
+    offset_y="auto",
+    offset_z="auto",
+    scale_x=0.01,
+    scale_y=0.01,
+    scale_z=0.01,
+).pipeline(clamped)
+pipeline |= pdal.Filter.stats() | pdal.Writer.tiledb(array_name="clamped")
+print(pipeline.execute())  # 387 points
+
+# Dump the TileDB array schema
+with tiledb.open("clamped") as a:
+    print(a.schema)
+```
+
+This example demonstrates:
+1. Reading a LAS file from a URL
+2. Filtering points with NumPy based on intensity values
+3. Further filtering with PDAL expressions
+4. Writing the filtered data to both a LAS file and a TileDB array
+5. Using `filters.stats` to automatically determine domain extents for optimal TileDB storage
+6. Inspecting the resulting TileDB array schema
+
+<Note>
+For TileDB, it is recommended to use Hilbert ordering with geospatial point cloud data. This requires specifying a domain extent, which can be determined automatically using `filters.stats`.
+</Note>

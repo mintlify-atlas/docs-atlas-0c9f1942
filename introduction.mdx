@@ -1,0 +1,75 @@
+---
+title: Introduction to PDAL Python
+description: Process point cloud data with Python and NumPy arrays using PDAL's Python bindings
+---
+
+# Introduction to PDAL Python
+
+PDAL Python provides Python bindings for PDAL (Point Data Abstraction Library), enabling you to process point cloud data directly with NumPy arrays. It bridges the gap between PDAL's powerful point cloud processing capabilities and Python's rich ecosystem of data science tools.
+
+## What is PDAL Python?
+
+PDAL Python is a Python extension module that allows you to:
+
+- **Process point cloud data** using PDAL pipelines directly from Python
+- **Work with NumPy arrays** for seamless integration with the scientific Python stack
+- **Access metadata and schemas** from PDAL operations
+- **Stream large datasets** efficiently without loading everything into memory
+- **Build pipelines programmatically** using intuitive Python syntax
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="NumPy integration" icon="grid-2">
+    Process point cloud data as NumPy structured arrays, enabling seamless integration with pandas, scikit-learn, and other scientific Python libraries.
+  </Card>
+  
+  <Card title="Programmatic pipelines" icon="code">
+    Build PDAL pipelines using Python objects and the pipe operator, or pass JSON strings for complex workflows.
+  </Card>
+  
+  <Card title="Streaming support" icon="water">
+    Process massive point clouds in chunks using iterators, keeping memory usage low while maintaining full functionality.
+  </Card>
+  
+  <Card title="Mesh capabilities" icon="cube">
+    Create and export TIN meshes from point clouds with built-in meshio integration for multiple output formats.
+  </Card>
+</CardGroup>
+
+## Why use PDAL Python?
+
+### Flexible data processing
+
+You can mix PDAL operations with NumPy array manipulations in the same workflow. Filter point clouds with PDAL, process them with NumPy, and pass them back to PDAL for further operations.
+
+### Production-ready performance
+
+PDAL Python leverages PDAL's C++ core for high-performance point cloud processing while providing a Pythonic interface. Support for streaming execution enables processing of datasets larger than available memory.
+
+### Rich ecosystem integration
+
+Seamlessly integrate with the Python geospatial and data science ecosystem, including pandas, GeoPandas, meshio, and TileDB. Convert between PDAL arrays, DataFrames, and GeoDataFrames as needed.
+
+## Use cases
+
+PDAL Python excels at:
+
+- **LiDAR data processing**: Read, filter, and classify LiDAR point clouds from LAS/LAZ files
+- **Digital terrain modeling**: Create DTMs and DSMs from classified ground points
+- **Point cloud analytics**: Compute statistics, detect features, and extract insights from 3D data
+- **Format conversion**: Transform point cloud data between formats (LAS, LAZ, PLY, TileDB, etc.)
+- **Geospatial workflows**: Reproject coordinates, clip to areas of interest, and integrate with GIS tools
+- **Mesh generation**: Create triangulated meshes from point clouds for 3D visualization and analysis
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install PDAL Python and its dependencies
+  </Card>
+  
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Create your first PDAL pipeline in Python
+  </Card>
+</CardGroup>

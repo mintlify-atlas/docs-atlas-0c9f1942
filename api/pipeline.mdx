@@ -1,0 +1,322 @@
+---
+title: Pipeline
+description: Main class for creating and executing PDAL pipelines
+---
+
+The `Pipeline` class is the primary interface for creating and executing PDAL operations. It can be constructed from JSON strings, sequences of Stage objects, or by piping stages together.
+
+## Constructor
+
+```python
+Pipeline(
+    spec: Union[None, str, Sequence[Stage]] = None,
+    arrays: Sequence[np.ndarray] = (),
+    loglevel: int = logging.ERROR,
+    json: Optional[str] = None,
+    dataframes: Sequence[DataFrame] = (),
+    stream_handlers: Sequence[Callable[[], int]] = ()
+)
+```
+
+<ParamField path="spec" type="Union[None, str, Sequence[Stage]]" default="None">
+  Pipeline specification. Can be a JSON string or a sequence of Stage objects.
+</ParamField>
+
+<ParamField path="arrays" type="Sequence[np.ndarray]" default="()">
+  Numpy arrays to use as input data for the pipeline.
+</ParamField>
+
+<ParamField path="loglevel" type="int" default="logging.ERROR">
+  Logging level using Python's logging module constants (ERROR, WARNING, INFO, DEBUG).
+</ParamField>
+
+<ParamField path="json" type="Optional[str]" default="None">
+  JSON string specification (alternative to spec parameter). Cannot be used together with spec.
+</ParamField>
+
+<ParamField path="dataframes" type="Sequence[DataFrame]" default="()">
+  Pandas DataFrames to use as input data. Will be converted to Numpy structured arrays.
+</ParamField>
+
+<ParamField path="stream_handlers" type="Sequence[Callable[[], int]]" default="()">
+  Functions called to populate input arrays during streaming execution. Must match the number of input arrays/dataframes.
+</ParamField>
+
+### Example
+
+```python
+import pdal
+import logging
+
+# From JSON string
+pipeline = pdal.Pipeline('{"pipeline": ["input.las", {"type": "filters.sort", "dimension": "X"}]}')
+
+# From Stage objects
+pipeline = pdal.Pipeline([pdal.Reader.las("input.las"), pdal.Filter.sort(dimension="X")])
+
+# Using pipe operator
+pipeline = pdal.Reader.las("input.las") | pdal.Filter.sort(dimension="X")
+
+# With numpy arrays as input
+import numpy as np
+array = np.array([(0, 0, 0)], dtype=[('X', float), ('Y', float), ('Z', float)])
+pipeline = pdal.Filter.sort(dimension="X").pipeline(array)
+```
+
+## Properties
+
+### stages
+
+```python
+@property
+stages -> List[Stage]
+```
+
+Returns a list of Stage objects in the pipeline.
+
+### streamable
+
+```python
+@property
+streamable -> bool
+```
+
+Returns `True` if all stages in the pipeline support streaming execution.
+
+### loglevel
+
+```python
+@property
+loglevel -> int
+```
+
+Gets or sets the logging level. Accepts Python logging module constants.
+
+```python
+pipeline.loglevel = logging.INFO
+```
+
+### arrays
+
+```python
+arrays: List[np.ndarray]
+```
+
+Numpy structured arrays containing the point cloud data after pipeline execution. Each array represents a point view output from the pipeline.
+
+```python
+pipeline.execute()
+point_data = pipeline.arrays[0]
+print(point_data['X'])  # Access X coordinates
+```
+
+### meshes
+
+```python
+meshes: List[np.ndarray]
+```
+
+Numpy arrays containing mesh data (triangles) from stages like `filters.delaunay`. Each triangle is a tuple (A, B, C) of indices into the corresponding point view.
+
+### metadata
+
+```python
+metadata: str
+```
+
+JSON string containing metadata from the pipeline execution.
+
+### log
+
+```python
+log: str
+```
+
+Log output from the pipeline execution.
+
+### srswkt2
+
+```python
+srswkt2: str
+```
+
+Spatial reference system in WKT2 format.
+
+## Methods
+
+### execute
+
+```python
+execute() -> int
+```
+
+Executes the pipeline in standard (non-streaming) mode.
+
+<ResponseField name="return" type="int">
+  Total number of points processed.
+</ResponseField>
+
+```python
+pipeline = pdal.Reader.las("input.las") | pdal.Filter.sort(dimension="X")
+count = pipeline.execute()
+print(f"Processed {count} points")
+```
+
+### execute_streaming
+
+```python
+execute_streaming(chunk_size: int) -> int
+```
+
+Executes a streamable pipeline in streaming mode without allocating arrays in memory. Useful when the pipeline has Writer stages and you don't need to access point data.
+
+<ParamField path="chunk_size" type="int">
+  Number of points to process per chunk.
+</ParamField>
+
+<ResponseField name="return" type="int">
+  Total number of points processed.
+</ResponseField>
+
+```python
+pipeline = pdal.Reader.las("input.las") | pdal.Writer.las("output.las")
+count = pipeline.execute_streaming(chunk_size=10000)
+```
+
+### iterator
+
+```python
+iterator(chunk_size: int = 10000, prefetch: int = 0) -> Iterator[np.ndarray]
+```
+
+Returns an iterator that yields Numpy arrays of up to `chunk_size` points at a time. Only works with streamable pipelines.
+
+<ParamField path="chunk_size" type="int" default="10000">
+  Maximum number of points per yielded array.
+</ParamField>
+
+<ParamField path="prefetch" type="int" default="0">
+  Number of arrays to prefetch and buffer in parallel.
+</ParamField>
+
+<ResponseField name="return" type="Iterator[np.ndarray]">
+  Iterator yielding Numpy structured arrays.
+</ResponseField>
+
+```python
+pipeline = pdal.Reader.las("input.las") | pdal.Filter.range(limits="Intensity[100:200]")
+for chunk in pipeline.iterator(chunk_size=5000):
+    print(f"Processing {len(chunk)} points")
+    # Process chunk...
+```
+
+### toJSON
+
+```python
+toJSON() -> str
+```
+
+Serializes the pipeline to a JSON string representation.
+
+<ResponseField name="return" type="str">
+  JSON string of the pipeline configuration.
+</ResponseField>
+
+```python
+pipeline = pdal.Reader.las("input.las") | pdal.Filter.sort(dimension="X")
+json_str = pipeline.toJSON()
+print(json_str)
+```
+
+### get_meshio
+
+```python
+get_meshio(idx: int) -> Optional[Mesh]
+```
+
+Creates a meshio Mesh object from the point view and mesh data at the specified index. Requires the `meshio` package to be installed.
+
+<ParamField path="idx" type="int">
+  Index of the point view to convert.
+</ParamField>
+
+<ResponseField name="return" type="Optional[Mesh]">
+  Meshio Mesh object, or None if no mesh data exists.
+</ResponseField>
+
+```python
+import pdal
+
+pipeline = pdal.Reader.las("input.las") | pdal.Filter.delaunay()
+pipeline.execute()
+
+mesh = pipeline.get_meshio(0)
+if mesh:
+    mesh.write('output.obj')
+```
+
+### get_dataframe
+
+```python
+get_dataframe(idx: int) -> Optional[DataFrame]
+```
+
+Converts the point view at the specified index to a Pandas DataFrame. Requires the `pandas` package to be installed.
+
+<ParamField path="idx" type="int">
+  Index of the point view to convert.
+</ParamField>
+
+<ResponseField name="return" type="Optional[DataFrame]">
+  Pandas DataFrame containing the point data.
+</ResponseField>
+
+```python
+pipeline.execute()
+df = pipeline.get_dataframe(0)
+print(df.head())
+```
+
+### get_geodataframe
+
+```python
+get_geodataframe(idx: int, xyz: bool = False, crs: Any = None) -> Optional[GeoDataFrame]
+```
+
+Converts the point view at the specified index to a GeoPandas GeoDataFrame with Point geometries. Requires the `geopandas` package to be installed.
+
+<ParamField path="idx" type="int">
+  Index of the point view to convert.
+</ParamField>
+
+<ParamField path="xyz" type="bool" default="False">
+  If True, creates 3D points including Z coordinates. Otherwise creates 2D points.
+</ParamField>
+
+<ParamField path="crs" type="Any" default="None">
+  Coordinate reference system to assign to the GeoDataFrame.
+</ParamField>
+
+<ResponseField name="return" type="Optional[GeoDataFrame]">
+  GeoPandas GeoDataFrame with Point geometries.
+</ResponseField>
+
+```python
+pipeline.execute()
+gdf = pipeline.get_geodataframe(0, xyz=True, crs="EPSG:4326")
+```
+
+## Pipeline Composition
+
+Pipelines support the pipe operator (`|`) for composition:
+
+```python
+# Pipe stages together
+pipeline = stage1 | stage2 | stage3
+
+# Pipe a stage to an existing pipeline
+pipeline |= new_stage
+
+# Pipe pipelines together
+combined = pipeline1 | pipeline2
+```

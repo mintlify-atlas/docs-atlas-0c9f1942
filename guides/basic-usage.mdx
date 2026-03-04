@@ -1,0 +1,81 @@
+---
+title: Basic usage
+description: Learn how to execute simple PDAL pipelines from JSON strings and access results
+---
+
+This guide covers the fundamentals of using PDAL Python to process point cloud data with simple pipeline operations.
+
+## Simple pipeline from JSON
+
+The most straightforward way to use PDAL Python is to define a pipeline as a JSON string. Here's an example that reads an ASPRS LAS file and sorts it by the `X` dimension:
+
+```python
+json = """
+{
+  "pipeline": [
+    "1.2-with-color.las",
+    {
+        "type": "filters.sort",
+        "dimension": "X"
+    }
+  ]
+}"""
+
+import pdal
+pipeline = pdal.Pipeline(json)
+count = pipeline.execute()
+arrays = pipeline.arrays
+metadata = pipeline.metadata
+log = pipeline.log
+```
+
+## Execute and access results
+
+<Steps>
+  <Step title="Create the pipeline">
+    Instantiate a `pdal.Pipeline` object with your JSON string:
+    
+    ```python
+    pipeline = pdal.Pipeline(json)
+    ```
+  </Step>
+
+  <Step title="Execute the pipeline">
+    Call the `execute()` method to run the pipeline. It returns the number of points processed:
+    
+    ```python
+    count = pipeline.execute()
+    ```
+  </Step>
+
+  <Step title="Access the results">
+    After execution, you can access:
+    
+    - `pipeline.arrays` - NumPy arrays containing the point data
+    - `pipeline.metadata` - Metadata from the pipeline stages
+    - `pipeline.log` - Log output from the pipeline execution
+  </Step>
+</Steps>
+
+<Note>
+  The `execute()` method returns the total number of points that were processed by the pipeline.
+</Note>
+
+## Using filters
+
+Filters transform point cloud data. The example above uses `filters.sort` to sort points by a specific dimension. You can chain multiple filters in your pipeline:
+
+```python
+json = """
+{
+  "pipeline": [
+    "input.las",
+    {
+        "type": "filters.sort",
+        "dimension": "X"
+    }
+  ]
+}"""
+```
+
+The pipeline processes stages sequentially from top to bottom.

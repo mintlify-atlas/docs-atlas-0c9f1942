@@ -1,0 +1,236 @@
+---
+title: Reader
+description: Stage class for reading point cloud data from various file formats
+---
+
+The `Reader` class represents PDAL reader stages that load point cloud data from files or other sources. Readers are the first stage in most PDAL pipelines.
+
+## Constructor
+
+```python
+Reader(filename: Optional[str] = None, **options: Any)
+```
+
+<ParamField path="filename" type="Optional[str]" default="None">
+  Path to the input file. Can be passed as the first positional argument or as a keyword argument.
+</ParamField>
+
+<ParamField path="options" type="Any">
+  Additional reader-specific options as keyword arguments.
+</ParamField>
+
+### Example
+
+```python
+import pdal
+
+# Specify filename positionally
+reader = pdal.Reader("input.las")
+
+# Specify filename as keyword argument
+reader = pdal.Reader(filename="input.las")
+
+# With additional options
+reader = pdal.Reader("input.las", type="readers.las", spatialreference="EPSG:4326")
+```
+
+## Type Inference
+
+The `Reader` class automatically infers the appropriate PDAL reader driver from the file extension when `type` is not explicitly specified.
+
+```python
+# Type automatically inferred as "readers.las"
+reader = pdal.Reader("data.las")
+
+# Type automatically inferred as "readers.bpf"
+reader = pdal.Reader("data.bpf")
+
+# Explicitly specify type (overrides inference)
+reader = pdal.Reader("data.xyz", type="readers.text")
+```
+
+## Properties
+
+Inherits all properties from [Stage](/api/stage):
+
+- `type` - The reader type (e.g., `"readers.las"`)
+- `streamable` - Whether the reader supports streaming
+- `tag` - Optional tag identifier
+- `inputs` - List of input stages (typically empty for readers)
+- `options` - Dictionary of all reader options
+
+## Methods
+
+Inherits all methods from [Stage](/api/stage):
+
+- `pipeline(*arrays, loglevel)` - Create a Pipeline from this reader
+- `__or__(other)` - Pipe operator for composing with other stages
+
+## Driver-Specific Static Methods
+
+The `Reader` class provides static methods for each available PDAL reader driver. These are automatically generated and provide convenient shortcuts.
+
+### Common readers
+
+#### las
+
+```python
+Reader.las(filename: str, **kwargs) -> Reader
+```
+
+Read LAS/LAZ format files (ASPRS LAS).
+
+```python
+reader = pdal.Reader.las("input.las")
+
+# With options
+reader = pdal.Reader.las(
+    filename="input.laz",
+    spatialreference="EPSG:4326",
+    use_eb_vlr=True
+)
+```
+
+#### bpf
+
+```python
+Reader.bpf(filename: str, **kwargs) -> Reader
+```
+
+Read BPF (Binary Point Format) files.
+
+```python
+reader = pdal.Reader.bpf("input.bpf")
+```
+
+#### ept
+
+```python
+Reader.ept(filename: str, **kwargs) -> Reader
+```
+
+Read EPT (Entwine Point Tile) data sources.
+
+```python
+reader = pdal.Reader.ept(
+    filename="https://s3-us-west-2.amazonaws.com/usgs-lidar-public/USGS_LPC_CA_LosAngeles_2016_LAS_2018/ept.json",
+    bounds="([0, 100], [0, 100])"
+)
+```
+
+#### text
+
+```python
+Reader.text(filename: str, **kwargs) -> Reader
+```
+
+Read point cloud data from text/CSV files.
+
+```python
+reader = pdal.Reader.text(
+    filename="points.csv",
+    separator=",",
+    header="X,Y,Z,Intensity"
+)
+```
+
+#### gdal
+
+```python
+Reader.gdal(filename: str, **kwargs) -> Reader
+```
+
+Read raster data as point cloud using GDAL.
+
+```python
+reader = pdal.Reader.gdal(
+    filename="elevation.tif",
+    header="X,Y,Z"
+)
+```
+
+#### tiledb
+
+```python
+Reader.tiledb(array_name: str, **kwargs) -> Reader
+```
+
+Read point cloud data from TileDB arrays.
+
+```python
+reader = pdal.Reader.tiledb(array_name="my_point_cloud")
+```
+
+<Note>
+  The specific static methods available depend on the PDAL drivers installed in your environment. Use `help(pdal.Reader.driver_name)` to see documentation for a specific driver.
+</Note>
+
+## Usage Examples
+
+### Basic file reading
+
+```python
+import pdal
+
+# Read a LAS file
+pipeline = pdal.Reader.las("input.las").pipeline()
+count = pipeline.execute()
+points = pipeline.arrays[0]
+
+print(f"Read {count} points")
+print(f"X range: {points['X'].min()} to {points['X'].max()}")
+```
+
+### Reading with filters
+
+```python
+import pdal
+
+# Read and filter in one pipeline
+pipeline = (
+    pdal.Reader.las("input.las")
+    | pdal.Filter.range(limits="Classification[2:2]")  # Ground points only
+    | pdal.Filter.sort(dimension="X")
+)
+
+count = pipeline.execute()
+ground_points = pipeline.arrays[0]
+```
+
+### Reading remote data
+
+```python
+import pdal
+
+# Read from URL
+url = "https://github.com/PDAL/PDAL/raw/master/test/data/las/1.2-with-color.las"
+pipeline = pdal.Reader.las(filename=url).pipeline()
+count = pipeline.execute()
+```
+
+### Reading multiple files
+
+```python
+import pdal
+
+# Read and merge multiple files
+reader1 = pdal.Reader.las("file1.las", tag="input1")
+reader2 = pdal.Reader.las("file2.las", tag="input2")
+merge = pdal.Filter.merge(inputs=["input1", "input2"])
+
+pipeline = pdal.Pipeline([reader1, reader2, merge])
+count = pipeline.execute()
+```
+
+### Streaming large files
+
+```python
+import pdal
+
+# Process large file in chunks
+pipeline = pdal.Reader.las("large_file.las") | pdal.Filter.range(limits="Intensity[100:200]")
+
+for chunk in pipeline.iterator(chunk_size=100000):
+    print(f"Processing {len(chunk)} points")
+    # Process chunk...
+```

@@ -1,0 +1,59 @@
+---
+title: "dimensions"
+description: "Get PDAL's valid dimension names"
+---
+
+## Overview
+
+`pdal.dimensions` provides access to all valid dimension names recognized by PDAL. This is useful for validating dimension names before using them in pipelines or for discovering what dimensions are available.
+
+## Usage
+
+```python
+import pdal
+
+# Access the dimensions list
+dims = pdal.dimensions
+
+# Check the number of available dimensions
+print(len(dims))  # Returns a positive integer
+
+# Check if a specific dimension exists
+if 'Intensity' in dims:
+    print("Intensity dimension is supported")
+```
+
+## Common dimensions
+
+PDAL supports many standard dimensions for point cloud data:
+
+- **X, Y, Z** - Spatial coordinates
+- **Intensity** - Return intensity value
+- **ReturnNumber** - Pulse return number
+- **NumberOfReturns** - Total returns for the pulse
+- **Classification** - Point classification
+- **Red, Green, Blue** - RGB color values
+- **GpsTime** - GPS timestamp
+
+The complete list includes over 100 dimension types for various point cloud attributes.
+
+## Implementation
+
+From `__init__.py`:
+
+```python
+dimensions = libpdalpython.getDimensions()
+```
+
+The dimensions list is populated when the PDAL module is imported and remains constant throughout the session.
+
+## Example from tests
+
+```python
+def test_dimensions():
+    """Ask PDAL for its valid dimensions list"""
+    dims = pdal.dimensions
+    assert len(dims) > 0
+```
+
+See `test/test_pipeline.py:test_dimensions` for the complete test.

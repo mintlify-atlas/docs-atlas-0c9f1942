@@ -1,0 +1,321 @@
+---
+title: Arrays
+description: Learn how PDAL Python uses NumPy arrays to represent and manipulate point cloud data
+---
+
+PDAL Python uses NumPy structured arrays to represent point cloud data, providing efficient access to point attributes and seamless integration with the Python scientific computing ecosystem.
+
+## How PDAL Python uses NumPy arrays
+
+After executing a pipeline, point cloud data is available as NumPy structured arrays. Each array represents a point view, which is PDAL's term for a collection of points:
+
+```python
+import pdal
+
+pipeline = pdal.Reader("test/data/1.2-with-color.las").pipeline()
+count = pipeline.execute()
+
+# Access the arrays
+arrays = pipeline.arrays
+print(len(arrays))  # Number of point views
+
+# Get the first array
+arr = arrays[0]
+print(len(arr))  # Number of points
+print(type(arr))  # <class 'numpy.ndarray'>
+```
+
+## Array structure and dtypes
+
+NumPy structured arrays use custom dtypes where each field represents a point dimension (X, Y, Z, Intensity, etc.). The structure matches PDAL's schema:
+
+```python
+import pdal
+
+pipeline = pdal.Reader("test/data/1.2-with-color.las").pipeline()
+pipeline.execute()
+arr = pipeline.arrays[0]
+
+# Examine the array structure
+print(arr.dtype)
+# dtype([('X', '<f8'), ('Y', '<f8'), ('Z', '<f8'), ('Intensity', '<u2'),
+#        ('ReturnNumber', 'u1'), ('NumberOfReturns', 'u1'), 
+#        ('ScanDirectionFlag', 'u1'), ('EdgeOfFlightLine', 'u1'),
+#        ('Classification', 'u1'), ('ScanAngleRank', '<f4'),
+#        ('UserData', 'u1'), ('PointSourceId', '<u2'),
+#        ('GpsTime', '<f8'), ('Red', '<u2'), ('Green', '<u2'), ('Blue', '<u2')])
+
+# View all dimension names
+print(arr.dtype.names)
+# ('X', 'Y', 'Z', 'Intensity', 'ReturnNumber', ...)
+```
+
+Common dtype codes:
+- `<f8`: 64-bit float (double)
+- `<f4`: 32-bit float
+- `<u2`: 16-bit unsigned integer
+- `u1`: 8-bit unsigned integer
+
+## Accessing pipeline.arrays
+
+The `arrays` property returns a list of NumPy arrays, one for each point view in the pipeline output:
+
+```python
+import pdal
+
+pipeline = pdal.Reader("test/data/1.2-with-color.las").pipeline()
+pipeline.execute()
+
+# Get all arrays
+arrays = pipeline.arrays
+print(len(arrays))  # 1
+
+# Access individual points and dimensions
+arr = arrays[0]
+print(arr[0][0])     # X coordinate of first point: 635619.85
+print(arr[1064][2])  # Z coordinate of last point: 456.92
+```
+
+<Warning>
+You must call `pipeline.execute()` before accessing `pipeline.arrays`. Attempting to access arrays before execution raises a `RuntimeError`.
+</Warning>
+
+## Working with point cloud data
+
+NumPy structured arrays provide powerful ways to access and manipulate point data.
+
+### Accessing dimensions
+
+Access specific dimensions using field names:
+
+```python
+import pdal
+
+pipeline = pdal.Reader("test/data/1.2-with-color.las").pipeline()
+pipeline.execute()
+arr = pipeline.arrays[0]
+
+# Get all X coordinates
+x_coords = arr["X"]
+
+# Get multiple dimensions
+coords = arr[["X", "Y", "Z"]]
+
+# Access individual point's dimension
+first_intensity = arr[0]["Intensity"]
+```
+
+### Filtering with boolean indexing
+
+Use NumPy's boolean indexing to filter points:
+
+```python
+import pdal
+
+pipeline = pdal.Reader("test/data/1.2-with-color.las").pipeline()
+pipeline.execute()
+arr = pipeline.arrays[0]
+
+# Filter points by intensity
+high_intensity = arr[arr["Intensity"] > 100]
+print(len(high_intensity))
+
+# Multiple conditions
+ground_points = arr[(arr["Classification"] == 2) & (arr["Z"] < 500)]
+
+# Filter by intensity range
+intensity_range = arr[(arr["Intensity"] >= 100) & (arr["Intensity"] < 300)]
+```
+
+### Array computations
+
+Perform vectorized operations on dimensions:
+
+```python
+import numpy as np
+import pdal
+
+pipeline = pdal.Reader("test/data/1.2-with-color.las").pipeline()
+pipeline.execute()
+arr = pipeline.arrays[0]
+
+# Calculate statistics
+mean_z = np.mean(arr["Z"])
+std_intensity = np.std(arr["Intensity"])
+min_x, max_x = np.min(arr["X"]), np.max(arr["X"])
+
+# Calculate distances
+distances = np.sqrt(arr["X"]**2 + arr["Y"]**2)
+
+# Sum values
+total_intensity = arr["Intensity"].sum()
+```
+
+## Creating arrays for input
+
+You can create NumPy arrays to pass as input to PDAL pipelines:
+
+```python
+import numpy as np
+import pdal
+
+# Create a structured array
+x_vals = [1.0, 2.0, 3.0, 4.0, 5.0]
+y_vals = [6.0, 7.0, 8.0, 9.0, 10.0]
+z_vals = [1.5, 3.5, 5.5, 7.5, 9.5]
+
+test_data = np.array(
+    [(x, y, z) for x, y, z in zip(x_vals, y_vals, z_vals)],
+    dtype=[("X", float), ("Y", float), ("Z", float)],
+)
+
+# Pass to pipeline
+pipeline = pdal.Pipeline(
+    '{"pipeline": [{"type":"filters.range", "limits":"X[2.5:4.5]"}]}',
+    arrays=[test_data]
+)
+count = pipeline.execute()
+filtered = pipeline.arrays[0]
+print(len(filtered))  # 2 points
+```
+
+## Multiple point views
+
+Some operations create multiple point views. For example, the `filters.splitter` or `filters.chipper` stages create separate arrays for each tile:
+
+```python
+import pdal
+
+pipeline = (
+    pdal.Reader("test/data/autzen-utm.las")
+    | pdal.Filter.splitter(length=1000)
+)
+pipeline.execute()
+
+arrays = pipeline.arrays
+print(len(arrays))  # 43 arrays (one per tile)
+
+# Process each array
+for i, arr in enumerate(arrays):
+    print(f"Tile {i}: {len(arr)} points")
+```
+
+## Limiting dimensions
+
+You can limit which dimensions are loaded into arrays to reduce memory usage:
+
+```python
+import pdal
+
+pipeline = pdal.Reader("test/data/1.2-with-color.las").pipeline()
+
+# Only load X, Y, Z dimensions
+limit = ['X', 'Y', 'Z']
+pipeline.execute(allowed_dims=limit)
+
+arrays = pipeline.arrays
+print(len(arrays[0].dtype))  # 3 dimensions only
+```
+
+This also works with streaming:
+
+```python
+import pdal
+
+pipeline = pdal.Reader("test/data/1.2-with-color.las").pipeline()
+
+limit = ['X', 'Y', 'Z', 'Intensity']
+for array in pipeline.iterator(chunk_size=100, allowed_dims=limit):
+    print(len(array.dtype))  # 4 dimensions only
+```
+
+## Integration with pandas and geopandas
+
+Convert arrays to DataFrames for tabular analysis:
+
+```python
+import pdal
+
+pipeline = pdal.Reader("test/data/autzen-utm.las").pipeline()
+pipeline.execute()
+
+# Convert to pandas DataFrame
+df = pipeline.get_dataframe(0)
+print(len(df))  # 1065 rows
+print(len(df.columns))  # 20 columns
+
+# Convert to GeoDataFrame with geometry
+gdf = pipeline.get_geodataframe(0, crs="EPSG:4326")
+print(gdf.geometry.is_valid.all())  # True
+```
+
+## Real-world example
+
+Here's a complete example combining NumPy array manipulation with PDAL processing:
+
+```python
+import pdal
+import numpy as np
+
+data = "https://github.com/PDAL/PDAL/blob/master/test/data/las/1.2-with-color.las?raw=true"
+
+# Read initial data
+pipeline = pdal.Reader.las(filename=data).pipeline()
+print(pipeline.execute())  # 1065 points
+
+# Get the array
+arr = pipeline.arrays[0]
+
+# Filter with NumPy
+intensity = arr[arr["Intensity"] > 30]
+print(len(intensity))  # 704 points
+
+# Pass filtered array back to PDAL for further processing
+pipeline = pdal.Filter.expression(
+    expression="Intensity >= 100 && Intensity < 300"
+).pipeline(intensity)
+print(pipeline.execute())  # 387 points
+clamped = pipeline.arrays[0]
+
+# Calculate statistics on final result
+print(f"Mean intensity: {np.mean(clamped['Intensity'])}")
+print(f"Z range: {np.min(clamped['Z']):.2f} to {np.max(clamped['Z']):.2f}")
+print(f"Total intensity sum: {clamped['Intensity'].sum()}")
+
+# Write the result
+pipeline = pdal.Writer.las(
+    filename="output.las",
+    offset_x="auto",
+    offset_y="auto",
+    offset_z="auto",
+    scale_x=0.01,
+    scale_y=0.01,
+    scale_z=0.01,
+).pipeline(clamped)
+pipeline.execute()
+```
+
+## Array memory management
+
+PDAL Python manages array memory efficiently:
+
+```python
+import pdal
+import sys
+
+pipeline = pdal.Reader("test/data/1.2-with-color.las").pipeline()
+pipeline.execute()
+
+# Check reference count
+arr = pipeline.arrays[0]
+refcount = sys.getrefcount(arr)
+print(refcount)  # Low reference count indicates proper memory management
+
+# Arrays are views into PDAL's internal memory
+# Modifying the array affects the internal buffer
+arr["Intensity"][0] = 999
+```
+
+<Note>
+When working with large datasets, consider using streaming execution with `pipeline.iterator()` to avoid loading all points into memory at once.
+</Note>

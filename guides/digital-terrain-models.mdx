@@ -1,0 +1,196 @@
+---
+title: Digital terrain models
+description: Create digital terrain models (DTMs) from point cloud data using PDAL Python
+---
+
+This guide shows how to create a Digital Terrain Model (DTM) from point cloud data using PDAL Python. A DTM represents the bare-earth surface by filtering out vegetation, buildings, and other above-ground features.
+
+## Overview
+
+The DTM creation workflow involves:
+
+1. Reading the point cloud file
+2. Removing noise
+3. Cleaning up invalid values
+4. Classifying ground points using SMRF
+5. Writing the result as a raster with the GDAL writer
+
+<Note>
+  If your point cloud already has ground points classified, you can skip directly to the reader and writer stages.
+</Note>
+
+## Complete DTM creation example
+
+```python
+import pdal
+
+pc_path = 'https://github.com/PDAL/data/raw/refs/heads/main/autzen/autzen.laz'
+out_file = 'autzen_dtm.tif'
+
+
+# read
+reader = pdal.Reader.las(pc_path)
+
+# remove noisy points
+lownoise_filter = pdal.Filter.range(
+    limits='Classification![7:7]', tag='lownoise'
+)
+highnoise_filter = pdal.Filter.range(
+    limits='Classification![18:]', tag='highnoise'
+)
+
+# saving incorrectly labeled returns here, some people want this, some don't
+prepare_ground = pdal.Filter.assign(
+    value=[
+        'Classification=0',
+        'ReturnNumber=1 WHERE ReturnNumber < 1',
+        'NumberOfReturns=1 WHERE NumberOfReturns < 1',
+    ],
+    tag='prepare_ground_classifier',
+)
+
+# classify ground
+smrf_classifier = pdal.Filter.smrf(tag='ground_classifier')
+
+# write with gdal, resolution in feet for autzen
+gdal_writer = pdal.Writer.gdal(
+    filename=out_file,
+    where='Classification == 2',
+    data_type='float32',
+    resolution=10,
+    output_type='idw',
+    window_size=3,
+    pdal_metadata=True,
+)
+
+# collect pdal stages and execute pipline
+pipeline = (
+    reader
+    | lownoise_filter
+    | highnoise_filter
+    | prepare_ground
+    | smrf_classifier
+    | gdal_writer
+)
+pipeline.execute()
+```
+
+## Workflow breakdown
+
+<Steps>
+  <Step title="Read the point cloud">
+    Start by reading your point cloud file:
+    
+    ```python
+    reader = pdal.Reader.las(pc_path)
+    ```
+    
+    This works with various formats including LAS, LAZ, and others supported by PDAL.
+  </Step>
+
+  <Step title="Remove noise">
+    Filter out points classified as low noise (7) and high noise (18+):
+    
+    ```python
+    lownoise_filter = pdal.Filter.range(
+        limits='Classification![7:7]', tag='lownoise'
+    )
+    highnoise_filter = pdal.Filter.range(
+        limits='Classification![18:]', tag='highnoise'
+    )
+    ```
+    
+    The `!` operator excludes points matching the classification range.
+  </Step>
+
+  <Step title="Prepare for ground classification">
+    Clean up invalid return values:
+    
+    ```python
+    prepare_ground = pdal.Filter.assign(
+        value=[
+            'Classification=0',
+            'ReturnNumber=1 WHERE ReturnNumber < 1',
+            'NumberOfReturns=1 WHERE NumberOfReturns < 1',
+        ],
+        tag='prepare_ground_classifier',
+    )
+    ```
+    
+    This ensures all points have valid return numbers before ground classification.
+  </Step>
+
+  <Step title="Classify ground points with SMRF">
+    Use the Simple Morphological Filter (SMRF) to identify ground points:
+    
+    ```python
+    smrf_classifier = pdal.Filter.smrf(tag='ground_classifier')
+    ```
+    
+    SMRF assigns classification value 2 to points identified as ground.
+  </Step>
+
+  <Step title="Write the raster output">
+    Use the GDAL writer to create a GeoTIFF raster from ground points:
+    
+    ```python
+    gdal_writer = pdal.Writer.gdal(
+        filename=out_file,
+        where='Classification == 2',
+        data_type='float32',
+        resolution=10,
+        output_type='idw',
+        window_size=3,
+        pdal_metadata=True,
+    )
+    ```
+    
+    Key parameters:
+    - `where='Classification == 2'` - Only use ground points
+    - `resolution=10` - Output resolution in data units (feet for this example)
+    - `output_type='idw'` - Use Inverse Distance Weighting for interpolation
+    - `window_size=3` - Window size for IDW interpolation
+  </Step>
+
+  <Step title="Execute the pipeline">
+    Chain all stages together and execute:
+    
+    ```python
+    pipeline = (
+        reader
+        | lownoise_filter
+        | highnoise_filter
+        | prepare_ground
+        | smrf_classifier
+        | gdal_writer
+    )
+    pipeline.execute()
+    ```
+  </Step>
+</Steps>
+
+## Ground classification with SMRF
+
+The Simple Morphological Filter (SMRF) is a progressive morphological filter that identifies ground points based on the assumption that the ground surface is continuous and relatively smooth.
+
+SMRF works by:
+1. Creating an initial estimate of the ground surface
+2. Progressively refining this estimate using morphological operations
+3. Classifying points below the threshold as ground (classification 2)
+
+For more details on SMRF parameters and tuning, see the [PDAL SMRF filter documentation](https://pdal.io/en/2.9.2/stages/filters.smrf.html).
+
+## GDAL writer for raster output
+
+The GDAL writer converts point cloud data into raster format. Key options include:
+
+- **`output_type`** - Interpolation method: `min`, `max`, `mean`, `idw`, `count`, `stdev`
+- **`resolution`** - Output resolution in the same units as your point cloud coordinates
+- **`data_type`** - Output data type: `float32`, `float64`, `int32`, etc.
+- **`window_size`** - For IDW, the size of the search window
+
+For complete GDAL writer options, see the [PDAL GDAL writer documentation](https://pdal.io/en/2.9.2/stages/writers.gdal.html).
+
+<Warning>
+  Make sure the resolution value matches your data's coordinate system units. The example uses feet, but you may need to adjust for meters or other units.
+</Warning>

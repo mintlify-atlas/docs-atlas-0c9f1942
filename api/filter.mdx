@@ -1,0 +1,392 @@
+---
+title: Filter
+description: Stage class for transforming and analyzing point cloud data
+---
+
+The `Filter` class represents PDAL filter stages that transform, analyze, or modify point cloud data. Filters are the middle stages in PDAL pipelines, processing data from readers or other filters.
+
+## Constructor
+
+```python
+Filter(type: str, **options: Any)
+```
+
+<ParamField path="type" type="str">
+  The PDAL filter type identifier (e.g., `"filters.sort"`, `"filters.range"`). Can be passed as the first positional argument.
+</ParamField>
+
+<ParamField path="options" type="Any">
+  Filter-specific options as keyword arguments.
+</ParamField>
+
+### Example
+
+```python
+import pdal
+
+# Specify type positionally
+filter = pdal.Filter("filters.sort", dimension="X")
+
+# Specify type as keyword argument
+filter = pdal.Filter(type="filters.range", limits="Classification[2:2]")
+```
+
+## Properties
+
+Inherits all properties from [Stage](/api/stage):
+
+- `type` - The filter type (e.g., `"filters.sort"`)
+- `streamable` - Whether the filter supports streaming
+- `tag` - Optional tag identifier
+- `inputs` - List of input stages or tags
+- `options` - Dictionary of all filter options
+
+## Methods
+
+Inherits all methods from [Stage](/api/stage):
+
+- `pipeline(*arrays, loglevel)` - Create a Pipeline from this filter
+- `__or__(other)` - Pipe operator for composing with other stages
+
+## Driver-Specific Static Methods
+
+The `Filter` class provides static methods for each available PDAL filter driver. These are automatically generated and provide convenient shortcuts.
+
+### Common filters
+
+#### sort
+
+```python
+Filter.sort(dimension: str, **kwargs) -> Filter
+```
+
+Sort points by a dimension value.
+
+```python
+filter = pdal.Filter.sort(dimension="X")
+
+# Descending order
+filter = pdal.Filter.sort(dimension="Z", order="DESC")
+```
+
+#### range
+
+```python
+Filter.range(limits: str, **kwargs) -> Filter
+```
+
+Filter points based on dimension value ranges.
+
+```python
+# Keep ground points only
+filter = pdal.Filter.range(limits="Classification[2:2]")
+
+# Multiple range conditions
+filter = pdal.Filter.range(limits="Intensity[100:200], Z[0:100]")
+
+# Exclude range
+filter = pdal.Filter.range(limits="Classification![7:7]")  # Exclude noise
+```
+
+#### expression
+
+```python
+Filter.expression(expression: str, **kwargs) -> Filter
+```
+
+Filter points using a logical expression.
+
+```python
+filter = pdal.Filter.expression(
+    expression="Intensity >= 100 && Intensity < 300"
+)
+```
+
+#### assign
+
+```python
+Filter.assign(value: List[str], **kwargs) -> Filter
+```
+
+Assign values to dimensions based on conditions.
+
+```python
+filter = pdal.Filter.assign(
+    value=[
+        "Classification=2 WHERE Z < 100",
+        "Intensity=0 WHERE Intensity < 0"
+    ]
+)
+```
+
+#### merge
+
+```python
+Filter.merge(**kwargs) -> Filter
+```
+
+Merge multiple input point views into one.
+
+```python
+# Merge two readers
+reader1 = pdal.Reader.las("file1.las", tag="input1")
+reader2 = pdal.Reader.las("file2.las", tag="input2")
+merge = pdal.Filter.merge(inputs=["input1", "input2"])
+
+pipeline = pdal.Pipeline([reader1, reader2, merge])
+```
+
+#### crop
+
+```python
+Filter.crop(bounds: str, **kwargs) -> Filter
+```
+
+Crop points to a bounding box.
+
+```python
+filter = pdal.Filter.crop(bounds="([0, 100], [0, 100])")
+```
+
+#### reprojection
+
+```python
+Filter.reprojection(out_srs: str, **kwargs) -> Filter
+```
+
+Reproject points to a different coordinate reference system.
+
+```python
+filter = pdal.Filter.reprojection(
+    in_srs="EPSG:4326",
+    out_srs="EPSG:3857"
+)
+```
+
+#### delaunay
+
+```python
+Filter.delaunay(**kwargs) -> Filter
+```
+
+Create a Delaunay triangulation (TIN) mesh from points.
+
+```python
+filter = pdal.Filter.delaunay()
+
+pipeline = pdal.Reader.las("input.las") | filter
+pipeline.execute()
+
+# Access mesh data
+mesh = pipeline.get_meshio(0)
+if mesh:
+    mesh.write('output.obj')
+```
+
+#### smrf
+
+```python
+Filter.smrf(**kwargs) -> Filter
+```
+
+Classify ground points using Simple Morphological Filter.
+
+```python
+filter = pdal.Filter.smrf(
+    scalar=1.2,
+    slope=0.2,
+    threshold=0.45,
+    window=16
+)
+```
+
+#### stats
+
+```python
+Filter.stats(**kwargs) -> Filter
+```
+
+Compute statistics about each dimension (min, max, mean, etc.).
+
+```python
+filter = pdal.Filter.stats()
+
+pipeline = pdal.Reader.las("input.las") | filter
+pipeline.execute()
+
+import json
+metadata = json.loads(pipeline.metadata)
+stats = metadata['metadata']['filters.stats']['statistic']
+for stat in stats:
+    print(f"{stat['name']}: {stat['minimum']} to {stat['maximum']}")
+```
+
+#### head
+
+```python
+Filter.head(count: int, **kwargs) -> Filter
+```
+
+Return the first N points.
+
+```python
+filter = pdal.Filter.head(count=1000)
+```
+
+#### tail
+
+```python
+Filter.tail(count: int, **kwargs) -> Filter
+```
+
+Return the last N points.
+
+```python
+filter = pdal.Filter.tail(count=1000)
+```
+
+#### sample
+
+```python
+Filter.sample(radius: float, **kwargs) -> Filter
+```
+
+Sample points using Poisson sampling.
+
+```python
+filter = pdal.Filter.sample(radius=1.0)
+```
+
+#### splitter
+
+```python
+Filter.splitter(length: float, **kwargs) -> Filter
+```
+
+Split points into tiles.
+
+```python
+filter = pdal.Filter.splitter(length=1000)
+```
+
+<Note>
+  The specific static methods available depend on the PDAL drivers installed in your environment. Use `help(pdal.Filter.driver_name)` to see documentation for a specific filter.
+</Note>
+
+## Usage Examples
+
+### Basic filtering
+
+```python
+import pdal
+
+# Filter ground points and sort by intensity
+pipeline = (
+    pdal.Reader.las("input.las")
+    | pdal.Filter.range(limits="Classification[2:2]")
+    | pdal.Filter.sort(dimension="Intensity")
+)
+
+count = pipeline.execute()
+points = pipeline.arrays[0]
+```
+
+### Complex filtering with expressions
+
+```python
+import pdal
+
+pipeline = (
+    pdal.Reader.las("input.las")
+    | pdal.Filter.expression(expression="Intensity >= 100 && Intensity < 300")
+    | pdal.Writer.las("filtered.las")
+)
+
+pipeline.execute()
+```
+
+### Using Numpy arrays with filters
+
+```python
+import numpy as np
+import pdal
+
+# Create test data
+data = "https://github.com/PDAL/PDAL/raw/master/test/data/las/1.2-with-color.las"
+pipeline = pdal.Reader.las(filename=data).pipeline()
+pipeline.execute()
+
+# Get the array and filter in Numpy
+arr = pipeline.arrays[0]
+intensity_filtered = arr[arr["Intensity"] > 30]
+
+# Pass back to PDAL for further processing
+pipeline = pdal.Filter.expression(
+    expression="Intensity >= 100 && Intensity < 300"
+).pipeline(intensity_filtered)
+
+count = pipeline.execute()
+clamped = pipeline.arrays[0]
+```
+
+### Creating a DTM (Digital Terrain Model)
+
+```python
+import pdal
+
+pipeline = (
+    pdal.Reader.las("input.laz")
+    | pdal.Filter.range(limits="Classification![7:7]")  # Remove noise
+    | pdal.Filter.range(limits="Classification![18:]")  # Remove high noise
+    | pdal.Filter.assign(value=["Classification=0"])    # Reset classification
+    | pdal.Filter.smrf()                                # Classify ground
+    | pdal.Writer.gdal(
+        filename="dtm.tif",
+        where="Classification == 2",
+        resolution=1.0,
+        output_type="idw"
+    )
+)
+
+pipeline.execute()
+```
+
+### Merging multiple point clouds
+
+```python
+import pdal
+
+reader1 = pdal.Reader.las("area1.las", tag="input1")
+reader2 = pdal.Reader.las("area2.las", tag="input2")
+reader3 = pdal.Reader.las("area3.las", tag="input3")
+
+merge = pdal.Filter.merge(inputs=["input1", "input2", "input3"])
+
+pipeline = (
+    pdal.Pipeline([reader1, reader2, reader3, merge])
+    | pdal.Filter.range(limits="Classification[2:2]")
+    | pdal.Writer.las("merged_ground.las")
+)
+
+pipeline.execute()
+```
+
+### Tiling large point clouds
+
+```python
+import pdal
+
+pipeline = (
+    pdal.Reader.las("large_area.laz")
+    | pdal.Filter.splitter(length=1000)  # 1000m tiles
+    | pdal.Filter.delaunay()             # Create mesh for each tile
+)
+
+pipeline.execute()
+
+# Process each tile
+for idx in range(len(pipeline.meshes)):
+    mesh = pipeline.get_meshio(idx)
+    if mesh:
+        mesh.write(f'tile_{idx}.obj')
+```
